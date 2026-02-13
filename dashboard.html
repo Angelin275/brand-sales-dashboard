@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Brand Sales Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f7fc;
+    }
+
+    header {
+      background: linear-gradient(90deg,#1e3c72,#2a5298);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .container { padding: 20px; }
+    .row { margin-bottom: 25px; }
+
+    .filters {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input, select, button {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background: #2a5298;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1e3c72; }
+
+    .tiles {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tile {
+      flex: 1;
+      min-width: 200px;
+      padding: 20px;
+      border-radius: 12px;
+      color: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: 0.3s;
+    }
+
+    .tile:hover { transform: translateY(-5px); }
+
+    .sales { background: linear-gradient(45deg,#ff512f,#dd2476); }
+    .cost { background: linear-gradient(45deg,#11998e,#38ef7d); }
+    .impressions { background: linear-gradient(45deg,#fc466b,#3f5efb); }
+    .clicks { background: linear-gradient(45deg,#f7971e,#ffd200); }
+
+    .chart-box, .table-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #2a5298;
+      color: white;
+      padding: 10px;
+    }
+
+    td {
+      padding: 8px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+
+    tfoot {
+      font-weight: bold;
+      background: #eef2ff;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>Brand Sales Analytics Dashboard (Shoe Brand)</header>
+
+<div class="container">
+
+  <div class="row filters">
+    <label>Start Date:</label>
+    <input type="date" id="startDate">
+
+    <label>End Date:</label>
+    <input type="date" id="endDate">
+
+    <label>Select Shoe:</label>
+    <select id="shoeSelect">
+      <option value="All">All Shoes</option>
+    </select>
+
+    <button onclick="applyFilter()">Apply</button>
+  </div>
+
+  <div class="row tiles">
+    <div class="tile sales">
+      <h4>Total Sales</h4>
+      <h3 id="totalSales">0</h3>
+    </div>
+    <div class="tile cost">
+      <h4>Total Advertising Cost</h4>
+      <h3 id="totalCost">0</h3>
+    </div>
+    <div class="tile impressions">
+      <h4>Total Impressions</h4>
+      <h3 id="totalImpressions">0</h3>
+    </div>
+    <div class="tile clicks">
+      <h4>Total Clicks</h4>
+      <h3 id="totalClicks">0</h3>
+    </div>
+  </div>
+
+  <div class="row chart-box">
+    <label>Select Metrics (Max 2):</label>
+    <select id="metricSelect" multiple size="4">
+      <option value="sales">Sales</option>
+      <option value="cost">Advertising Cost</option>
+      <option value="impressions">Impressions</option>
+      <option value="clicks">Clicks</option>
+    </select>
+    <canvas id="lineChart" height="100"></canvas>
+  </div>
+
+  <div class="row table-box">
+    <table>
+      <thead>
+        <tr>
+          <th>Shoe Name</th>
+          <th>Sales</th>
+          <th>Advertising Cost</th>
+          <th>Impressions</th>
+          <th>Clicks</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+      <tfoot>
+        <tr>
+          <td>Grand Total</td>
+          <td id="gtSales"></td>
+          <td id="gtCost"></td>
+          <td id="gtImpressions"></td>
+          <td id="gtClicks"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const shoes = ["Nike Air","Adidas Run","Puma Speed"];
+const data = [];
+
+// Generate full year 2025 data automatically
+for(let month=1; month<=12; month++){
+  for(let day=1; day<=28; day++){
+    shoes.forEach(shoe=>{
+      data.push({
+        date:`2025-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
+        shoe:shoe,
+        sales:Math.floor(Math.random()*200+50),
+        cost:Math.floor(Math.random()*100+20),
+        impressions:Math.floor(Math.random()*2000+500),
+        clicks:Math.floor(Math.random()*500+50)
+      });
+    });
+  }
+}
+
+let chart;
+
+function init(){
+  const select=document.getElementById("shoeSelect");
+  shoes.forEach(shoe=>{
+    const opt=document.createElement("option");
+    opt.value=shoe;
+    opt.textContent=shoe;
+    select.appendChild(opt);
+  });
+
+  document.getElementById("startDate").value="2025-01-01";
+  document.getElementById("endDate").value="2025-12-28";
+
+  applyFilter();
+}
+
+function applyFilter(){
+  const start=document.getElementById("startDate").value;
+  const end=document.getElementById("endDate").value;
+  const shoe=document.getElementById("shoeSelect").value;
+
+  let filtered=data.filter(d=>d.date>=start && d.date<=end);
+
+  if(shoe!=="All"){
+    filtered=filtered.filter(d=>d.shoe===shoe);
+  }
+
+  updateTiles(filtered);
+  updateTable(filtered);
+  updateChart(filtered);
+}
+
+function updateTiles(filtered){
+  const totals=calculateTotals(filtered);
+  document.getElementById("totalSales").innerText=totals.sales;
+  document.getElementById("totalCost").innerText=totals.cost;
+  document.getElementById("totalImpressions").innerText=totals.impressions;
+  document.getElementById("totalClicks").innerText=totals.clicks;
+}
+
+function calculateTotals(arr){
+  return {
+    sales:arr.reduce((s,d)=>s+d.sales,0),
+    cost:arr.reduce((s,d)=>s+d.cost,0),
+    impressions:arr.reduce((s,d)=>s+d.impressions,0),
+    clicks:arr.reduce((s,d)=>s+d.clicks,0)
+  };
+}
+
+function updateTable(filtered){
+  const tbody=document.getElementById("tableBody");
+  tbody.innerHTML="";
+
+  const grouped={};
+  filtered.forEach(d=>{
+    if(!grouped[d.shoe])
+      grouped[d.shoe]={sales:0,cost:0,impressions:0,clicks:0};
+    grouped[d.shoe].sales+=d.sales;
+    grouped[d.shoe].cost+=d.cost;
+    grouped[d.shoe].impressions+=d.impressions;
+    grouped[d.shoe].clicks+=d.clicks;
+  });
+
+  let grand={sales:0,cost:0,impressions:0,clicks:0};
+
+  for(let shoe in grouped){
+    const row=document.createElement("tr");
+    row.innerHTML=`
+      <td>${shoe}</td>
+      <td>${grouped[shoe].sales}</td>
+      <td>${grouped[shoe].cost}</td>
+      <td>${grouped[shoe].impressions}</td>
+      <td>${grouped[shoe].clicks}</td>`;
+    tbody.appendChild(row);
+
+    grand.sales+=grouped[shoe].sales;
+    grand.cost+=grouped[shoe].cost;
+    grand.impressions+=grouped[shoe].impressions;
+    grand.clicks+=grouped[shoe].clicks;
+  }
+
+  document.getElementById("gtSales").innerText=grand.sales;
+  document.getElementById("gtCost").innerText=grand.cost;
+  document.getElementById("gtImpressions").innerText=grand.impressions;
+  document.getElementById("gtClicks").innerText=grand.clicks;
+}
+
+function updateChart(filtered){
+  const selected=[...document.getElementById("metricSelect").selectedOptions]
+    .map(o=>o.value);
+
+  if(selected.length>2){
+    alert("Select maximum 2 metrics only");
+    return;
+  }
+
+  const labels=[...new Set(filtered.map(d=>d.date))];
+
+  const datasets=selected.map(metric=>{
+    return {
+      label:metric,
+      data:labels.map(date=>{
+        return filtered
+          .filter(d=>d.date===date)
+          .reduce((s,d)=>s+d[metric],0);
+      }),
+      borderWidth:3,
+      tension:0.3,
+      fill:false
+    }
+  });
+
+  if(chart) chart.destroy();
+
+  chart=new Chart(document.getElementById("lineChart"),{
+    type:"line",
+    data:{labels,datasets},
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
+  });
+}
+
+document.getElementById("shoeSelect").addEventListener("change",applyFilter);
+document.getElementById("metricSelect").addEventListener("change",applyFilter);
+
+init();
+</script>
+
+</body>
+</html>
